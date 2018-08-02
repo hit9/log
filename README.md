@@ -15,7 +15,7 @@ import (
 	"github.com/hit9/log"
 )
 
-var logger = log.New()
+var logger = log.Get("Name")
 
 func main() {
 	logger.SetLevel(log.INFO)

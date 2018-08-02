@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"runtime"
+	"sync"
 	"time"
 )
 
@@ -20,11 +21,16 @@ const (
 	ERROR
 )
 
+// Global registry
+var m = sync.Mutex{}
+var registry = make(map[string]*Logger, 0)
+
 // Level name
 var levelNames = [4]string{"DEBUG", "INFO", "WARN", "ERROR"}
 
 // Logger abstraction.
 type Logger struct {
+	name    string
 	level   int
 	w       io.Writer
 	colored bool
@@ -32,13 +38,22 @@ type Logger struct {
 }
 
 // New creates a new Logger.
-func New() *Logger {
-	return &Logger{
+func Get(name string) *Logger {
+	m.Lock()
+	defer m.Unlock()
+	l, ok := registry[name]
+	if ok {
+		return l
+	}
+	l = &Logger{
+		name:    name,
 		level:   INFO,
 		w:       os.Stdout,
 		colored: true,
 		enabled: true,
 	}
+	registry[name] = l
+	return l
 }
 
 // colors to ansi code map
@@ -154,7 +169,7 @@ func (l *Logger) log(level int, msg string) error {
 		now := time.Now().String()[:19]
 		// Message
 		levelName := levelNames[level]
-		header := Colored(levelColors[level], fmt.Sprintf("%s %s %s:%d", levelName, now, filepath, line))
+		header := Colored(levelColors[level], fmt.Sprintf("[%s] %s %s %s:%d", l.name, levelName, now, filepath, line))
 		_, err := fmt.Fprintf(l.w, "%s %s\n", header, msg)
 		return err
 	}

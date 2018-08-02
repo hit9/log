@@ -7,7 +7,7 @@ import (
 )
 
 func TestLog(t *testing.T) {
-	logger := New()
+	logger := Get("ExampleName")
 	// No assertions.
 	logger.SetLevel(DEBUG)
 	logger.Debug(nil)
