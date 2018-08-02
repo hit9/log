@@ -23,13 +23,23 @@ const (
 // Level name
 var levelNames = [4]string{"DEBUG", "INFO", "WARN", "ERROR"}
 
-// Logging runtime
-var (
-	level             = INFO
-	w       io.Writer = os.Stderr
-	colored           = true
-	enabled           = true
-)
+// Logger abstraction.
+type Logger struct {
+	level   int
+	w       io.Writer
+	colored bool
+	enabled bool
+}
+
+// New creates a new Logger.
+func New() *Logger {
+	return &Logger{
+		level:   INFO,
+		w:       os.Stdout,
+		colored: true,
+		enabled: true,
+	}
+}
 
 // colors to ansi code map
 var colors = map[string]int{
@@ -52,79 +62,79 @@ var levelColors = map[int]string{
 }
 
 // SetColored sets the color enability.
-func SetColored(b bool) {
-	colored = b
+func (l *Logger) SetColored(b bool) {
+	l.colored = b
 }
 
 // SetLevel sets the logging level.
-func SetLevel(l int) {
-	level = l % len(levelNames)
+func (l *Logger) SetLevel(level int) {
+	l.level = level % len(levelNames)
 }
 
 // SetWriter sets the writer.
-func SetWriter(writer io.Writer) {
-	w = writer
+func (l *Logger) SetWriter(w io.Writer) {
+	l.w = w
 }
 
 // Disable the logging.
-func Disable() {
-	enabled = false
+func (l *Logger) Disable() {
+	l.enabled = false
 }
 
 // Enable the logging.
-func Enable() {
-	enabled = true
+func (l *Logger) Enable() {
+	l.enabled = true
 }
 
 // Debug logs message with level DEBUG.
-func Debug(a ...interface{}) error {
-	return log(DEBUG, fmt.Sprint(a...))
+func (l *Logger) Debug(a ...interface{}) error {
+	return l.log(DEBUG, fmt.Sprint(a...))
 }
 
 // Info logs message with level INFO.
-func Info(a ...interface{}) error {
-	return log(INFO, fmt.Sprint(a...))
+func (l *Logger) Info(a ...interface{}) error {
+	return l.log(INFO, fmt.Sprint(a...))
 }
 
 // Warn logs message with level WARN.
-func Warn(a ...interface{}) error {
-	return log(WARN, fmt.Sprint(a...))
+func (l *Logger) Warn(a ...interface{}) error {
+	return l.log(WARN, fmt.Sprint(a...))
 }
 
 // Error logs message with level ERROR.
-func Error(a ...interface{}) error {
-	return log(ERROR, fmt.Sprint(a...))
+func (l *Logger) Error(a ...interface{}) error {
+	return l.log(ERROR, fmt.Sprint(a...))
 }
 
 // Fatal and logs message with level FATAL.
-func Fatal(a ...interface{}) {
-	log(ERROR, fmt.Sprint(a...))
+func (l *Logger) Fatal(a ...interface{}) {
+	l.log(ERROR, fmt.Sprint(a...))
 	os.Exit(1)
 }
 
 // Debugf formats and logs message with level DEBUG.
-func Debugf(format string, a ...interface{}) error {
-	return log(DEBUG, fmt.Sprintf(format, a...))
+func (l *Logger) Debugf(format string, a ...interface{}) error {
+	return l.log(DEBUG, fmt.Sprintf(format, a...))
 }
 
 // Infof formats and logs message with level INFO.
-func Infof(format string, a ...interface{}) error {
-	return log(INFO, fmt.Sprintf(format, a...))
+func (l *Logger) Infof(format string, a ...interface{}) error {
+	return l.log(INFO, fmt.Sprintf(format, a...))
 }
 
 // Warnf formats and logs message with level WARN.
-func Warnf(format string, a ...interface{}) error {
-	return log(WARN, fmt.Sprintf(format, a...))
+func (l *Logger) Warnf(format string, a ...interface{}) error {
+	return l.log(WARN, fmt.Sprintf(format, a...))
 }
 
 // Errorf formats and logs message with level ERROR.
-func Errorf(format string, a ...interface{}) error {
-	return log(ERROR, fmt.Sprintf(format, a...))
+func (l *Logger) Errorf(format string, a ...interface{}) error {
+	return l.log(ERROR, fmt.Sprintf(format, a...))
 }
 
 // Fatalf formats and logs message with level FATAL.
-func Fatalf(format string, a ...interface{}) {
-	log(ERROR, fmt.Sprintf(format, a...))
+func (l *Logger) Fatalf(format string, a ...interface{}) {
+	l.log(ERROR, fmt.Sprintf(format, a...))
 	os.Exit(1)
 }
 
@@ -134,8 +144,8 @@ func Colored(color string, text string) string {
 }
 
 // log dose logging.
-func log(l int, msg string) error {
-	if enabled && l >= level {
+func (l *Logger) log(level int, msg string) error {
+	if l.enabled && level >= l.level {
 		// Caller pkg.
 		_, fileName, line, _ := runtime.Caller(2)
 		pkgName := path.Base(path.Dir(fileName))
@@ -143,9 +153,9 @@ func log(l int, msg string) error {
 		// Datetime and pid.
 		now := time.Now().String()[:19]
 		// Message
-		level := levelNames[l]
-		header := Colored(levelColors[l], fmt.Sprintf("%s %s %s:%d", level, now, filepath, line))
-		_, err := fmt.Fprintf(w, "%s %s\n", header, msg)
+		levelName := levelNames[level]
+		header := Colored(levelColors[level], fmt.Sprintf("%s %s %s:%d", levelName, now, filepath, line))
+		_, err := fmt.Fprintf(l.w, "%s %s\n", header, msg)
 		return err
 	}
 	return nil

@@ -7,14 +7,15 @@ import (
 )
 
 func TestLog(t *testing.T) {
+	logger := New()
 	// No assertions.
-	SetLevel(DEBUG)
-	Debug(nil)
-	Info(nil)
-	Warn(nil)
-	Error(nil)
-	Debugf("hello %s", "world")
-	Infof("hello %s", "world")
-	Warnf("hello %s", "world")
-	Errorf("hello %s", "world")
+	logger.SetLevel(DEBUG)
+	logger.Debug(nil)
+	logger.Info(nil)
+	logger.Warn(nil)
+	logger.Error(nil)
+	logger.Debugf("hello %s", "world")
+	logger.Infof("hello %s", "world")
+	logger.Warnf("hello %s", "world")
+	logger.Errorf("hello %s", "world")
 }
