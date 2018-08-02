@@ -15,13 +15,15 @@ import (
 	"github.com/hit9/log"
 )
 
+var logger = log.New()
+
 func main() {
-	log.SetLevel(log.INFO)
-	log.Debug("This is a debug message")
-	log.Info("This is a info message")
-	log.Warn("This is a warning message")
-	log.Error("This is an error message")
-	log.Warnf("This is a number %v", 1)
+	logger.SetLevel(log.INFO)
+	logger.Debug("This is a debug message")
+	logger.Info("This is a info message")
+	logger.Warn("This is a warning message")
+	logger.Error("This is an error message")
+	logger.Warnf("This is a number %v", 1)
 }
 ```
 
