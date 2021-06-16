@@ -1,6 +1,17 @@
-// Copyright 2018 Chao Wang <hit9@icloud.com>
-
-// Package log implements leveled logging.
+// Package log implements a minimal leveled logging library.
+//
+// Example
+//
+//	var logger = log.Get("ExampleName")
+//
+//	func main() {
+//		logger.SetLevel(log.INFO)
+//		logger.Debug("This is a debug message")
+//		logger.Info("This is a info message")
+//		logger.Warn("This is a warning message")
+//		logger.Error("This is an error message")
+//		logger.Warnf("This is a number %v", 1)
+//	}
 package log
 
 import (
@@ -11,6 +22,8 @@ import (
 	"runtime"
 	"sync"
 	"time"
+
+	"github.com/willf/pad"
 )
 
 // Level
@@ -19,6 +32,11 @@ const (
 	INFO
 	WARN
 	ERROR
+)
+
+// default
+const (
+	DefaultCallerDepth = 2
 )
 
 // Global registry
@@ -30,11 +48,18 @@ var levelNames = [4]string{"DEBUG", "INFO", "WARN", "ERROR"}
 
 // Logger abstraction.
 type Logger struct {
-	name    string
-	level   int
-	w       io.Writer
-	colored bool
-	enabled bool
+	name                      string
+	nameLength                int
+	level                     int
+	w                         io.Writer
+	colored                   bool
+	callerDepth               int
+	enableCallerSourceLogging bool
+}
+
+// get log registry
+func GetRegistry() map[string]*Logger {
+	return registry
 }
 
 // New creates a new Logger.
@@ -46,11 +71,13 @@ func Get(name string) *Logger {
 		return l
 	}
 	l = &Logger{
-		name:    name,
-		level:   INFO,
-		w:       os.Stdout,
-		colored: true,
-		enabled: true,
+		name:                      name,
+		nameLength:                0,
+		level:                     INFO,
+		w:                         os.Stdout,
+		colored:                   true,
+		callerDepth:               DefaultCallerDepth,
+		enableCallerSourceLogging: true,
 	}
 	registry[name] = l
 	return l
@@ -86,71 +113,67 @@ func (l *Logger) SetLevel(level int) {
 	l.level = level % len(levelNames)
 }
 
+// GetLevel gets the logging level.
+func (l *Logger) GetLevel() int {
+	return l.level
+}
+
 // SetWriter sets the writer.
 func (l *Logger) SetWriter(w io.Writer) {
 	l.w = w
 }
 
-// Disable the logging.
-func (l *Logger) Disable() {
-	l.enabled = false
+// SetNameLength sets the name length.
+func (l *Logger) SetNameLength(n int) { l.nameLength = n }
+
+// SetCallerDepth sets the caller depth for this logger.
+func (l *Logger) SetCallerDepth(callerDepth int) {
+	l.callerDepth = callerDepth
 }
 
-// Enable the logging.
-func (l *Logger) Enable() {
-	l.enabled = true
+// DisableCallerSourceLogging disables the logging for caller source.
+// This sets to true by default.
+func (l *Logger) DisableCallerSourceLogging() {
+	l.enableCallerSourceLogging = false
 }
 
-// Debug logs message with level DEBUG.
-func (l *Logger) Debug(a ...interface{}) error {
-	return l.log(DEBUG, fmt.Sprint(a...))
-}
-
-// Info logs message with level INFO.
-func (l *Logger) Info(a ...interface{}) error {
-	return l.log(INFO, fmt.Sprint(a...))
-}
-
-// Warn logs message with level WARN.
-func (l *Logger) Warn(a ...interface{}) error {
-	return l.log(WARN, fmt.Sprint(a...))
-}
-
-// Error logs message with level ERROR.
-func (l *Logger) Error(a ...interface{}) error {
-	return l.log(ERROR, fmt.Sprint(a...))
-}
-
-// Fatal and logs message with level FATAL.
-func (l *Logger) Fatal(a ...interface{}) {
-	l.log(ERROR, fmt.Sprint(a...))
-	os.Exit(1)
-}
-
-// Debugf formats and logs message with level DEBUG.
-func (l *Logger) Debugf(format string, a ...interface{}) error {
+// Debug formats and logs message with level DEBUG.
+func (l *Logger) Debug(format string, a ...interface{}) error {
 	return l.log(DEBUG, fmt.Sprintf(format, a...))
 }
 
-// Infof formats and logs message with level INFO.
-func (l *Logger) Infof(format string, a ...interface{}) error {
+// Info formats and logs message with level INFO.
+func (l *Logger) Info(format string, a ...interface{}) error {
 	return l.log(INFO, fmt.Sprintf(format, a...))
 }
 
-// Warnf formats and logs message with level WARN.
-func (l *Logger) Warnf(format string, a ...interface{}) error {
+// Warn formats and logs message with level WARN.
+func (l *Logger) Warn(format string, a ...interface{}) error {
 	return l.log(WARN, fmt.Sprintf(format, a...))
 }
 
-// Errorf formats and logs message with level ERROR.
-func (l *Logger) Errorf(format string, a ...interface{}) error {
+// Error formats and logs message with level ERROR.
+func (l *Logger) Error(format string, a ...interface{}) error {
 	return l.log(ERROR, fmt.Sprintf(format, a...))
 }
 
-// Fatalf formats and logs message with level FATAL.
-func (l *Logger) Fatalf(format string, a ...interface{}) {
+// Fatal formats and logs message with level FATAL.
+func (l *Logger) Fatal(format string, a ...interface{}) {
 	l.log(ERROR, fmt.Sprintf(format, a...))
 	os.Exit(1)
+}
+
+// Smart formats and logs message in different levels according to given error.
+func (l *Logger) Smart(e error, format string, a ...interface{}) {
+	if e == nil {
+		l.Info(format, a...)
+	} else {
+		l.Error(format, a...)
+	}
+}
+
+func (l *Logger) Log(level int, format string, a ...interface{}) error {
+	return l.log(level, fmt.Sprintf(format, a...))
 }
 
 // Colored returns text in color.
@@ -160,16 +183,34 @@ func Colored(color string, text string) string {
 
 // log dose logging.
 func (l *Logger) log(level int, msg string) error {
-	if l.enabled && level >= l.level {
+	if level >= l.level {
 		// Caller pkg.
-		_, fileName, line, _ := runtime.Caller(2)
+		_, fileName, line, _ := runtime.Caller(l.callerDepth)
 		pkgName := path.Base(path.Dir(fileName))
 		filepath := path.Join(pkgName, path.Base(fileName))
 		// Datetime and pid.
 		now := time.Now().String()[:19]
 		// Message
 		levelName := levelNames[level]
-		header := Colored(levelColors[level], fmt.Sprintf("[%s] %s %s %s:%d", l.name, levelName, now, filepath, line))
+		levelName = pad.Right(levelName, 5, " ")
+		// Name
+		name := l.name
+		if l.nameLength > 0 {
+			name = pad.Right(l.name, l.nameLength, " ")
+		}
+		// Whether to log the caller source.
+		var headerString string
+		if !l.enableCallerSourceLogging {
+			headerString = fmt.Sprintf("[ %s ] %s %s", name, levelName, now)
+		} else {
+			headerString = fmt.Sprintf("[ %s ] %s %s %s:%d", name, levelName, now, filepath, line)
+		}
+
+		header := headerString
+		if l.colored {
+			header = Colored(levelColors[level], headerString)
+		}
+
 		_, err := fmt.Fprintf(l.w, "%s %s\n", header, msg)
 		return err
 	}
