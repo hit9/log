@@ -3,7 +3,7 @@ Log
 
 Package log implements leveled logging.
 
-https://godoc.org/github.com/hit9/log
+https://pkg.go.dev/github.com/hit9/log
 
 Example
 -------
