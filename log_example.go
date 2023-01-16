@@ -16,5 +16,5 @@ func main() {
 	logger.Info("This is a info message")
 	logger.Warn("This is a warning message")
 	logger.Error("This is an error message")
-	logger.Warnf("This is a number %v", 1)
+	logger.Warn("This is a number %v", 1)
 }
